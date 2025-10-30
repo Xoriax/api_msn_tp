@@ -4,6 +4,7 @@ const Schema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   firstname: { type: String, required: true },
   lastname: { type: String, required: true },
+  password: { type: String, required: true, select: false },
   avatar: { type: String, required: false },
   age: { type: Number, required: false },
   city: { type: String, required: false },
@@ -20,6 +21,7 @@ const Schema = new mongoose.Schema({
     retUpdated.id = ret._id;
 
     delete retUpdated._id;
+    delete retUpdated.password;
 
     return retUpdated;
   }

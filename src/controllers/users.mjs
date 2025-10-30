@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcrypt';
 import UserModel from '../models/user.mjs';
-import { generateToken } from '../middleware/auth.mjs';
+import { generateToken, authenticateToken } from '../middleware/auth.mjs';
 
 const Users = class Users {
   constructor(app, connect) {
@@ -98,13 +99,20 @@ const Users = class Users {
     this.app.post('/users', async (req, res) => {
       try {
         const {
-          email, firstname, lastname, avatar, age, city, phone
+          email, firstname, lastname, password, avatar, age, city, phone
         } = req.body;
 
-        if (!email || !firstname || !lastname) {
+        if (!email || !firstname || !lastname || !password) {
           return res.status(400).json({
             code: 400,
-            message: 'L\'email, le prénom et le nom sont requis'
+            message: 'L\'email, le prénom, le nom et le mot de passe sont requis'
+          });
+        }
+
+        if (password.length < 6) {
+          return res.status(400).json({
+            code: 400,
+            message: 'Le mot de passe doit contenir au moins 6 caractères'
           });
         }
 
@@ -124,10 +132,14 @@ const Users = class Users {
           });
         }
 
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
         const userData = {
           email,
           firstname,
           lastname,
+          password: hashedPassword,
           avatar,
           age,
           city,
@@ -161,9 +173,10 @@ const Users = class Users {
   }
 
   update() {
-    this.app.put('/users/:id', async (req, res) => {
+    this.app.put('/users/:id', authenticateToken, async (req, res) => {
       try {
         const { id } = req.params;
+        const { userId } = req.user;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
           return res.status(400).json({
@@ -172,7 +185,25 @@ const Users = class Users {
           });
         }
 
+        if (id !== userId) {
+          return res.status(403).json({
+            code: 403,
+            message: 'Vous ne pouvez modifier que votre propre compte'
+          });
+        }
+
         const updateData = { ...req.body, updated_at: new Date() };
+
+        if (updateData.password) {
+          if (updateData.password.length < 6) {
+            return res.status(400).json({
+              code: 400,
+              message: 'Le mot de passe doit contenir au moins 6 caractères'
+            });
+          }
+          const saltRounds = 10;
+          updateData.password = await bcrypt.hash(updateData.password, saltRounds);
+        }
 
         if (updateData.email) {
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -233,14 +264,22 @@ const Users = class Users {
   }
 
   deleteById() {
-    this.app.delete('/users/:id', async (req, res) => {
+    this.app.delete('/users/:id', authenticateToken, async (req, res) => {
       try {
         const { id } = req.params;
+        const { userId } = req.user;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
           return res.status(400).json({
             code: 400,
             message: 'ID d\'utilisateur invalide'
+          });
+        }
+
+        if (id !== userId) {
+          return res.status(403).json({
+            code: 403,
+            message: 'Vous ne pouvez supprimer que votre propre compte'
           });
         }
 
@@ -310,7 +349,7 @@ const Users = class Users {
           });
         }
 
-        const user = await this.UserModel.findOne({ email });
+        const user = await this.UserModel.findOne({ email }).select('+password');
         if (!user) {
           return res.status(401).json({
             code: 401,
@@ -318,7 +357,8 @@ const Users = class Users {
           });
         }
 
-        if (user.password !== password) {
+        const isValidPassword = await bcrypt.compare(password, user.password);
+        if (!isValidPassword) {
           return res.status(401).json({
             code: 401,
             message: 'Email ou mot de passe incorrect'
@@ -351,6 +391,53 @@ const Users = class Users {
     });
   }
 
+  logout() {
+    this.app.post('/auth/logout', authenticateToken, async (req, res) => {
+      try {
+        return res.status(200).json({
+          code: 200,
+          message: 'Déconnexion réussie. Veuillez supprimer le token côté client.'
+        });
+      } catch (error) {
+        console.error(`[ERROR] auth/logout -> ${error}`);
+        return res.status(500).json({
+          code: 500,
+          message: 'Erreur lors de la déconnexion',
+          error: error.message
+        });
+      }
+    });
+  }
+
+  getProfile() {
+    this.app.get('/auth/profile', authenticateToken, async (req, res) => {
+      try {
+        const { userId } = req.user;
+
+        const user = await this.UserModel.findById(userId);
+        if (!user) {
+          return res.status(404).json({
+            code: 404,
+            message: 'Utilisateur non trouvé'
+          });
+        }
+
+        return res.status(200).json({
+          code: 200,
+          message: 'success',
+          data: user
+        });
+      } catch (error) {
+        console.error(`[ERROR] auth/profile -> ${error}`);
+        return res.status(500).json({
+          code: 500,
+          message: 'Erreur lors de la récupération du profil',
+          error: error.message
+        });
+      }
+    });
+  }
+
   run() {
     this.getall();
     this.showById();
@@ -359,6 +446,8 @@ const Users = class Users {
     this.deleteById();
     this.getUserByEmail();
     this.login();
+    this.logout();
+    this.getProfile();
   }
 };
 
