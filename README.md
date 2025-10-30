@@ -346,15 +346,3 @@ npm run dev     # Développement avec rechargement automatique
 npm start       # Production
 npm run lint    # Vérification du code avec ESLint
 ```
-
-## Contribution
-
-1. Fork le projet
-2. Créer une branche feature
-3. Commiter les changements
-4. Push vers la branche
-5. Ouvrir une Pull Request
-
-## License
-
-MIT License - voir le fichier LICENSE pour plus de détails
