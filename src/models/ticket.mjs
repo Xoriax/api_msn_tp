@@ -20,6 +20,9 @@ const Schema = new mongoose.Schema({
   ticket_number: { type: String, required: true, unique: true },
   is_used: { type: Boolean, default: false },
   used_at: { type: Date, required: false },
+  status: { type: String, enum: ['active', 'cancelled', 'used'], default: 'active' },
+  cancelled_at: { type: Date, required: false },
+  cancellation_reason: { type: String, required: false },
   created_at: { type: Date, default: Date.now }
 }, {
   collection: 'tickets',

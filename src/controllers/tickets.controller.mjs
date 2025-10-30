@@ -161,7 +161,8 @@ export default class Tickets {
         const ticketData = {
           ticket_type_id: ticketTypeId,
           event_id: ticketType.event_id,
-          buyerInfo
+          buyerInfo,
+          ticket_number: `TKT-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
         };
 
         const ticket = new this.TicketModel(ticketData);
@@ -380,6 +381,110 @@ export default class Tickets {
     });
   }
 
+  deleteTicketType() {
+    this.app.delete('/ticket-types/:id', async (req, res) => {
+      try {
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          return res.status(400).json({
+            code: 400,
+            message: 'ID de type de billet invalide'
+          });
+        }
+
+        const ticketType = await this.TicketTypeModel.findById(id);
+
+        if (!ticketType) {
+          return res.status(404).json({
+            code: 404,
+            message: 'Type de billet non trouvé'
+          });
+        }
+
+        if (ticketType.quantity_sold > 0) {
+          return res.status(400).json({
+            code: 400,
+            message: `Impossible de supprimer ce type de billet, ${ticketType.quantity_sold} billet(s) actif(s) restant(s)`
+          });
+        }
+
+        await this.TicketTypeModel.findByIdAndDelete(id);
+
+        return res.status(200).json({
+          code: 200,
+          message: 'Type de billet supprimé avec succès'
+        });
+      } catch (error) {
+        return res.status(500).json({
+          code: 500,
+          message: 'Erreur lors de la suppression du type de billet',
+          error: error.message
+        });
+      }
+    });
+  }
+
+  cancelTicket() {
+    this.app.delete('/tickets/:ticketNumber', async (req, res) => {
+      try {
+        const { ticketNumber } = req.params;
+        const { reason } = req.body;
+
+        const ticket = await this.TicketModel.findOne({ ticket_number: ticketNumber });
+
+        if (!ticket) {
+          return res.status(404).json({
+            code: 404,
+            message: 'Billet non trouvé'
+          });
+        }
+
+        if (ticket.is_used) {
+          return res.status(400).json({
+            code: 400,
+            message: 'Impossible d\'annuler un billet déjà utilisé'
+          });
+        }
+
+        if (ticket.status === 'cancelled') {
+          return res.status(400).json({
+            code: 400,
+            message: 'Ce billet est déjà annulé'
+          });
+        }
+
+        ticket.status = 'cancelled';
+        ticket.cancelled_at = new Date();
+        ticket.cancellation_reason = reason || 'Annulé par l\'utilisateur';
+        await ticket.save();
+
+        const ticketType = await this.TicketTypeModel.findById(ticket.ticket_type_id);
+        if (ticketType && ticketType.quantity_sold > 0) {
+          ticketType.quantity_sold -= 1;
+          await ticketType.save();
+        }
+
+        return res.status(200).json({
+          code: 200,
+          message: 'Billet annulé avec succès',
+          data: {
+            ticketNumber: ticket.ticket_number,
+            status: 'cancelled',
+            cancelledAt: ticket.cancelled_at,
+            reason: ticket.cancellation_reason
+          }
+        });
+      } catch (error) {
+        return res.status(500).json({
+          code: 500,
+          message: 'Erreur lors de l\'annulation du billet',
+          error: error.message
+        });
+      }
+    });
+  }
+
   run() {
     this.getTicketTypesByEvent();
     this.createTicketType();
@@ -388,5 +493,7 @@ export default class Tickets {
     this.getTicketsByEvent();
     this.useTicket();
     this.updateTicketType();
+    this.deleteTicketType();
+    this.cancelTicket();
   }
 }

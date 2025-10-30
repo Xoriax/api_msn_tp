@@ -5,18 +5,36 @@ import compression from 'compression';
 import cors from 'cors';
 import helmet from 'helmet';
 
-import config from './config.mjs';
 import routes from './controllers/routes.mjs';
 
 const Server = class Server {
   constructor() {
     this.app = express();
-    this.config = config[process.argv[2]] || config.development;
+    this.config = this.getConfig();
+  }
+
+  getConfig() {
+    const config = {
+      development: {
+        type: 'development',
+        port: 3000,
+        mongodb: process.env.MONGODB_URI
+      },
+      production: {
+        type: 'production',
+        port: 3000,
+        mongodb: process.env.MONGODB_URI
+      }
+    };
+
+    return config[process.argv[2]] || config.development;
   }
 
   async dbConnect() {
     try {
       const host = this.config.mongodb;
+      console.log('[DEBUG] MongoDB URI:', host);
+      console.log('[DEBUG] All config:', this.config);
 
       this.connect = await mongoose.createConnection(host, {
         useNewUrlParser: true,

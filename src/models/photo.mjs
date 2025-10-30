@@ -13,6 +13,7 @@ const Schema = new mongoose.Schema({
   album_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Album', required: true },
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   comments: [CommentSchema],
+  likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now }
 }, {

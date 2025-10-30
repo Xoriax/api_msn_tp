@@ -192,7 +192,7 @@ export default class Polls {
         }
 
         for (const vote of votes) {
-          const question = poll.questions.id(vote.question_id);
+          const question = poll.questions.find((q) => q._id.toString() === vote.question_id);
           if (!question) {
             return res.status(400).json({
               code: 400,
@@ -200,7 +200,7 @@ export default class Polls {
             });
           }
 
-          const option = question.options.id(vote.option_id);
+          const option = question.options.find((opt) => opt._id.toString() === vote.option_id);
           if (!option) {
             return res.status(400).json({
               code: 400,
@@ -208,7 +208,6 @@ export default class Polls {
             });
           }
 
-          // Retirer l'utilisateur de toutes les autres options
           question.options.forEach((opt, optIndex) => {
             const filteredVotes = opt.votes.filter(
               (voteUserId) => voteUserId.toString() !== userId

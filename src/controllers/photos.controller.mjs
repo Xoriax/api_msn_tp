@@ -367,6 +367,118 @@ const Photos = class Photos {
     });
   }
 
+  likePhoto() {
+    this.app.post('/photos/:id/like', async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { userId } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
+          return res.status(400).json({
+            code: 400,
+            message: 'ID invalide'
+          });
+        }
+
+        const photo = await this.PhotoModel.findById(id);
+
+        if (!photo) {
+          return res.status(404).json({
+            code: 404,
+            message: 'Photo non trouvée'
+          });
+        }
+
+        // Vérifier si l'utilisateur a déjà liké
+        const hasLiked = photo.likes.some((like) => like.toString() === userId);
+
+        if (hasLiked) {
+          return res.status(400).json({
+            code: 400,
+            message: 'Vous avez déjà liké cette photo'
+          });
+        }
+
+        // Ajouter le like
+        photo.likes.push(userId);
+        photo.updated_at = new Date();
+        await photo.save();
+
+        return res.status(200).json({
+          code: 200,
+          message: 'Photo likée avec succès',
+          data: {
+            photoId: id,
+            likesCount: photo.likes.length,
+            hasLiked: true
+          }
+        });
+      } catch (error) {
+        return res.status(500).json({
+          code: 500,
+          message: 'Erreur lors du like de la photo',
+          error: error.message
+        });
+      }
+    });
+  }
+
+  unlikePhoto() {
+    this.app.delete('/photos/:id/like', async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { userId } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
+          return res.status(400).json({
+            code: 400,
+            message: 'ID invalide'
+          });
+        }
+
+        const photo = await this.PhotoModel.findById(id);
+
+        if (!photo) {
+          return res.status(404).json({
+            code: 404,
+            message: 'Photo non trouvée'
+          });
+        }
+
+        // Vérifier si l'utilisateur a liké
+        const likeIndex = photo.likes.findIndex((like) => like.toString() === userId);
+
+        if (likeIndex === -1) {
+          return res.status(400).json({
+            code: 400,
+            message: 'Vous n\'avez pas liké cette photo'
+          });
+        }
+
+        // Retirer le like
+        photo.likes.splice(likeIndex, 1);
+        photo.updated_at = new Date();
+        await photo.save();
+
+        return res.status(200).json({
+          code: 200,
+          message: 'Like retiré avec succès',
+          data: {
+            photoId: id,
+            likesCount: photo.likes.length,
+            hasLiked: false
+          }
+        });
+      } catch (error) {
+        return res.status(500).json({
+          code: 500,
+          message: 'Erreur lors du retrait du like',
+          error: error.message
+        });
+      }
+    });
+  }
+
   run() {
     this.getAllForAlbum();
     this.showById();
@@ -375,6 +487,8 @@ const Photos = class Photos {
     this.deleteById();
     this.addComment();
     this.deleteComment();
+    this.likePhoto();
+    this.unlikePhoto();
   }
 };
 

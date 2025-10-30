@@ -1,21 +1,23 @@
 {
-  "name": "@so-xzen/api",
-  "version": "1.2.0",
-  "description": "API REST complète pour la gestion d'événements Facebook avec authentification JWT sécurisée",
+  "name": "api-msn-events",
+  "version": "1.3.0",
+  "description": "API REST complète pour la gestion d'événements avec authentification JWT, billetterie, albums photos et système de discussions",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "dev": "npx eslint ./src/**/*.mjs && node index.mjs ",
+    "start": "node index.mjs production",
     "prod": "node index.mjs production",
     "lint": "npx eslint ./src/**/*.mjs"
   },
   "author": "Xoriax",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "bcrypt": "^6.0.0",
     "body-parser": "^1.20.2",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "^4.18.2",
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.2",
