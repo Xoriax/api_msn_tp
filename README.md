@@ -405,18 +405,6 @@ JWT_SECRET=strong-secret-key-for-production
 - Ajoutez des limites de taux (rate limiting)
 - Validez toutes les entrées utilisateur
 
-## Contribution
-
-1. Fork le projet
-2. Créer une branche feature (`git checkout -b feature/amazing-feature`)
-3. Commit les changements (`git commit -m 'Add amazing feature'`)
-4. Push vers la branche (`git push origin feature/amazing-feature`)
-5. Ouvrir une Pull Request
-
-## Licence
-
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
-
 ## Installation et démarrage
 
 1. Installer les dépendances :
