@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
 import GroupSchema from '../models/group.mjs';
 import { authenticateToken, checkGroupAdmin } from '../middleware/auth.mjs';
 
@@ -10,26 +11,72 @@ export default class Groups {
     this.run();
   }
 
-  getPublicGroups() {
-    this.app.get('/groups/public', async (req, res) => {
+  getAllGroups() {
+    this.app.get('/groups', async (req, res) => {
       try {
         const { page = 1, limit = 10 } = req.query;
         const skip = (page - 1) * limit;
 
+        const authHeader = req.headers.authorization;
+        let currentUserId = null;
+
+        if (authHeader) {
+          const token = authHeader.split(' ')[1];
+          try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-this-in-production');
+            currentUserId = decoded.userId;
+          } catch (err) {
+            console.error('Token invalide:', err);
+          }
+        }
+
         const groups = await this.GroupModel
-          .find({ type: 'public' })
+          .find({ type: { $ne: 'secret' } })
           .populate('administrators', 'firstname lastname email')
-          .populate('members', 'firstname lastname email')
           .sort({ created_at: -1 })
           .skip(skip)
           .limit(parseInt(limit, 10));
 
-        const total = await this.GroupModel.countDocuments({ type: 'public' });
+        const total = await this.GroupModel.countDocuments({ type: { $ne: 'secret' } });
+
+        const filteredGroups = groups.map((group) => {
+          const groupObj = group.toObject();
+
+          if (group.type === 'public') {
+            return groupObj;
+          }
+
+          if (group.type === 'private') {
+            const isMember = currentUserId && (
+              group.members.some((member) => member._id.toString() === currentUserId)
+              || group.administrators.some((admin) => admin._id.toString() === currentUserId)
+            );
+
+            if (isMember) {
+              return groupObj;
+            }
+
+            return {
+              _id: groupObj._id,
+              name: groupObj.name,
+              description: groupObj.description,
+              icon: groupObj.icon,
+              coverPhoto: groupObj.coverPhoto,
+              type: groupObj.type,
+              created_at: groupObj.created_at,
+              memberCount: group.members.length,
+              isPrivate: true,
+              canJoin: true
+            };
+          }
+
+          return groupObj;
+        });
 
         return res.status(200).json({
           code: 200,
           message: 'success',
-          data: groups,
+          data: filteredGroups,
           pagination: {
             page: parseInt(page, 10),
             limit: parseInt(limit, 10),
@@ -40,7 +87,7 @@ export default class Groups {
       } catch (error) {
         return res.status(500).json({
           code: 500,
-          message: 'Erreur lors de la récupération des groupes publics',
+          message: 'Erreur lors de la récupération des groupes',
           error: error.message
         });
       }
@@ -59,6 +106,19 @@ export default class Groups {
           });
         }
 
+        const authHeader = req.headers.authorization;
+        let currentUserId = null;
+
+        if (authHeader) {
+          const token = authHeader.split(' ')[1];
+          try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-this-in-production');
+            currentUserId = decoded.userId;
+          } catch (err) {
+            console.error('Token invalide:', err);
+          }
+        }
+
         const group = await this.GroupModel
           .findById(id)
           .populate('administrators', 'firstname lastname email')
@@ -71,6 +131,48 @@ export default class Groups {
             code: 404,
             message: 'Groupe non trouvé'
           });
+        }
+
+        if (group.type === 'secret') {
+          const isMember = currentUserId && (
+            group.members.some((member) => member._id.toString() === currentUserId)
+            || group.administrators.some((admin) => admin._id.toString() === currentUserId)
+          );
+
+          if (!isMember) {
+            return res.status(404).json({
+              code: 404,
+              message: 'Groupe non trouvé'
+            });
+          }
+        }
+
+        if (group.type === 'private') {
+          const isMember = currentUserId && (
+            group.members.some((member) => member._id.toString() === currentUserId)
+            || group.administrators.some((admin) => admin._id.toString() === currentUserId)
+          );
+
+          if (!isMember) {
+            const groupObj = group.toObject();
+            return res.status(200).json({
+              code: 200,
+              message: 'success',
+              data: {
+                _id: groupObj._id,
+                name: groupObj.name,
+                description: groupObj.description,
+                icon: groupObj.icon,
+                coverPhoto: groupObj.coverPhoto,
+                type: groupObj.type,
+                created_at: groupObj.created_at,
+                memberCount: group.members.length,
+                isPrivate: true,
+                canJoin: true,
+                message: 'Informations limitées - Rejoignez le groupe pour voir plus de détails'
+              }
+            });
+          }
         }
 
         return res.status(200).json({
@@ -332,7 +434,7 @@ export default class Groups {
   }
 
   run() {
-    this.getPublicGroups();
+    this.getAllGroups();
     this.getGroupById();
     this.createGroup();
     this.updateGroup();

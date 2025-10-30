@@ -98,6 +98,7 @@ src/
 - Administrateurs et membres
 - Paramètres de permissions (posts et événements des membres)
 - Événements et discussions associés
+- **Contrôle d'accès intelligent** selon le type et l'appartenance
 
 ### Discussion (Discussion)
 - Liaison à un événement OU un groupe (exclusif)
@@ -196,15 +197,27 @@ POST   /groups/:groupId/events   # Créer un événement dans un groupe (admins)
 ### Groupes
 
 ```http
-GET    /groups                   # Liste des groupes
-GET    /groups/public            # Groupes publics uniquement
-GET    /groups/:id               # Détails d'un groupe
+GET    /groups                   # Tous les groupes avec contrôle d'accès
+GET    /groups/public            # Groupes publics uniquement (compatibilité)
+GET    /groups/:id               # Détails d'un groupe (contrôle d'accès)
 POST   /groups                   # Créer un groupe
 PUT    /groups/:id               # Modifier un groupe (admins)
 DELETE /groups/:id               # Supprimer un groupe (admins)
 POST   /groups/:id/join          # Rejoindre un groupe
 POST   /groups/:id/leave         # Quitter un groupe
 ```
+
+#### Contrôle d'accès aux groupes
+
+**GET /groups** - Nouveau système intelligent :
+- **Groupes publics** : Informations complètes pour tous
+- **Groupes privés** : Visibles par tous, détails limités aux non-membres
+- **Groupes secrets** : Invisibles dans la liste publique
+
+**GET /groups/:id** - Accès conditionnel :
+- **Public** : Accessible à tous
+- **Privé** : Détails complets pour membres, informations limitées pour non-membres
+- **Secret** : Accessible uniquement aux membres (404 pour les autres)
 
 ### Discussions
 
@@ -273,6 +286,59 @@ GET    /tickets/:id                     # Détails d'un billet
 POST   /events/:eventId/tickets         # Acheter des billets
 PUT    /tickets/:id                     # Modifier un billet
 DELETE /tickets/:id                     # Annuler un billet
+```
+
+## Gestion de la Confidentialité des Groupes
+
+### Types de Groupes
+
+**Public** : Accessible à tous
+- Visible dans la liste publique
+- Détails complets accessibles sans restriction
+- Tous peuvent rejoindre librement
+
+**Privé** : Visible mais accès restreint
+- Visible dans la liste publique avec informations de base
+- Détails complets uniquement pour les membres
+- Possibilité de rejoindre après demande
+
+**Secret** : Complètement caché
+- Invisible dans la liste publique
+- Accessible uniquement par lien direct si membre
+- Impossible de rejoindre sans invitation
+
+### Authentification Optionnelle
+
+Les endpoints `/groups` et `/groups/:id` fonctionnent avec ou sans authentification :
+
+**Sans token JWT** :
+```json
+// Groupe privé - informations limitées
+{
+  "_id": "group_id",
+  "name": "Nom du groupe",
+  "description": "Description publique",
+  "type": "private",
+  "memberCount": 25,
+  "isPrivate": true,
+  "canJoin": true
+}
+```
+
+**Avec token JWT (membre)** :
+```json
+// Groupe privé - informations complètes
+{
+  "_id": "group_id", 
+  "name": "Nom du groupe",
+  "description": "Description complète",
+  "type": "private",
+  "administrators": [...],
+  "members": [...],
+  "events": [...],
+  "allowMemberPosts": true,
+  "discussion_id": "..."
+}
 ```
 
 ## Format des réponses
