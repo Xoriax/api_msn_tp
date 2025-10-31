@@ -30,20 +30,30 @@ export const generateToken = (userId) => jwt.sign({ userId }, JWT_SECRET, { expi
 
 export const checkGroupAdmin = (GroupModel) => async (req, res, next) => {
   try {
-    const { id: groupId } = req.params;
+    const { id: groupId, groupId: paramGroupId } = req.params;
+    const actualGroupId = groupId || paramGroupId;
     const { userId } = req.user;
 
-    const group = await GroupModel.findById(groupId);
+    console.log('[DEBUG] checkGroupAdmin - GroupId:', actualGroupId);
+    console.log('[DEBUG] checkGroupAdmin - UserId:', userId);
+
+    const group = await GroupModel.findById(actualGroupId);
     if (!group) {
+      console.log('[DEBUG] checkGroupAdmin - Group not found');
       return res.status(404).json({
         code: 404,
         message: 'Groupe non trouvé'
       });
     }
 
+    console.log('[DEBUG] checkGroupAdmin - Group found:', group.name);
+    console.log('[DEBUG] checkGroupAdmin - Administrators:', group.administrators);
+
     const isAdmin = group.administrators.some(
       (adminId) => adminId.toString() === userId.toString()
     );
+
+    console.log('[DEBUG] checkGroupAdmin - Is admin?', isAdmin);
 
     if (!isAdmin) {
       return res.status(403).json({
@@ -65,25 +75,40 @@ export const checkGroupAdmin = (GroupModel) => async (req, res, next) => {
 
 export const checkEventOrganizer = (EventModel) => async (req, res, next) => {
   try {
-    const { id: eventId } = req.params;
+    const { id: eventId, eventId: paramEventId } = req.params;
+    const actualEventId = eventId || paramEventId;
     const { userId } = req.user;
 
-    const event = await EventModel.findById(eventId);
+    console.log('[DEBUG] checkEventOrganizer - EventId:', actualEventId);
+    console.log('[DEBUG] checkEventOrganizer - UserId from token:', userId);
+
+    const event = await EventModel.findById(actualEventId);
     if (!event) {
+      console.log('[DEBUG] checkEventOrganizer - Event not found');
       return res.status(404).json({
         code: 404,
         message: 'Événement non trouvé'
       });
     }
 
+    console.log('[DEBUG] checkEventOrganizer - Event found:', event.name);
+    console.log('[DEBUG] checkEventOrganizer - Event organizers:', event.organizers);
+
     const isOrganizer = event.organizers.some(
       (organizerId) => organizerId.toString() === userId.toString()
     );
 
+    console.log('[DEBUG] checkEventOrganizer - Is organizer?', isOrganizer);
+
     if (!isOrganizer) {
       return res.status(403).json({
         code: 403,
-        message: 'Seuls les organisateurs peuvent effectuer cette action'
+        message: 'Seuls les organisateurs peuvent effectuer cette action',
+        debug: {
+          userId,
+          organizers: event.organizers,
+          eventId: actualEventId
+        }
       });
     }
 
@@ -183,7 +208,11 @@ export const checkGroupMember = (GroupModel) => async (req, res, next) => {
       (memberId) => memberId.toString() === userId.toString()
     );
 
-    if (!isMember) {
+    const isAdmin = group.administrators.some(
+      (adminId) => adminId.toString() === userId.toString()
+    );
+
+    if (!isMember && !isAdmin) {
       return res.status(403).json({
         code: 403,
         message: 'Seuls les membres du groupe peuvent accéder à cette ressource'
@@ -218,7 +247,11 @@ export const checkEventParticipant = (EventModel) => async (req, res, next) => {
       (participantId) => participantId.toString() === userId.toString()
     );
 
-    if (!isParticipant) {
+    const isOrganizer = event.organizers.some(
+      (organizerId) => organizerId.toString() === userId.toString()
+    );
+
+    if (!isParticipant && !isOrganizer) {
       return res.status(403).json({
         code: 403,
         message: 'Seuls les participants peuvent accéder à cette ressource'
@@ -266,7 +299,11 @@ export const checkDiscussionAccess = (
         (memberId) => memberId.toString() === userId.toString()
       );
 
-      if (!isMember) {
+      const isAdmin = group.administrators.some(
+        (adminId) => adminId.toString() === userId.toString()
+      );
+
+      if (!isMember && !isAdmin) {
         return res.status(403).json({
           code: 403,
           message: 'Seuls les membres du groupe peuvent accéder à cette discussion'
@@ -289,7 +326,11 @@ export const checkDiscussionAccess = (
         (participantId) => participantId.toString() === userId.toString()
       );
 
-      if (!isParticipant) {
+      const isOrganizer = event.organizers.some(
+        (organizerId) => organizerId.toString() === userId.toString()
+      );
+
+      if (!isParticipant && !isOrganizer) {
         return res.status(403).json({
           code: 403,
           message: 'Seuls les participants à l\'événement peuvent accéder à cette discussion'
@@ -439,7 +480,7 @@ export const checkPollDeleteAccess = (PollModel, EventModel) => async (req, res,
   }
 };
 
-export const checkAlbumAccess = (AlbumModel, EventModel) => async (req, res, next) => {
+export const checkAlbumAccess = (AlbumModel, EventModel, GroupModel) => async (req, res, next) => {
   try {
     const { id: albumId, albumId: paramAlbumId } = req.params;
     const { userId } = req.user;
@@ -453,7 +494,12 @@ export const checkAlbumAccess = (AlbumModel, EventModel) => async (req, res, nex
       });
     }
 
-    const event = await EventModel.findById(album.event_id);
+    if (album.createdBy && album.createdBy.toString() === userId.toString()) {
+      req.album = album;
+      return next();
+    }
+
+    const event = await EventModel.findById(album.event_id).populate('groupId');
     if (!event) {
       return res.status(404).json({
         code: 404,
@@ -465,10 +511,24 @@ export const checkAlbumAccess = (AlbumModel, EventModel) => async (req, res, nex
       (participantId) => participantId.toString() === userId.toString()
     );
 
-    if (!isParticipant) {
+    const isOrganizer = event.organizers.some(
+      (organizerId) => organizerId.toString() === userId.toString()
+    );
+
+    let isGroupAdmin = false;
+    if (event.groupId && GroupModel) {
+      const group = await GroupModel.findById(event.groupId);
+      if (group) {
+        isGroupAdmin = group.administrators.some(
+          (adminId) => adminId.toString() === userId.toString()
+        );
+      }
+    }
+
+    if (!isParticipant && !isOrganizer && !isGroupAdmin) {
       return res.status(403).json({
         code: 403,
-        message: 'Seuls les participants à l\'événement peuvent accéder à cet album'
+        message: 'Vous devez être participant, organisateur, créateur de l\'album ou administrateur du groupe pour accéder à cet album'
       });
     }
 
@@ -564,7 +624,12 @@ export const checkPhotoUploader = (PhotoModel) => async (req, res, next) => {
   }
 };
 
-export const checkPhotoAccess = (PhotoModel, AlbumModel, EventModel) => async (req, res, next) => {
+export const checkPhotoAccess = (
+  PhotoModel,
+  AlbumModel,
+  EventModel,
+  GroupModel
+) => async (req, res, next) => {
   try {
     const { id: photoId } = req.params;
     const { userId } = req.user;
@@ -577,6 +642,11 @@ export const checkPhotoAccess = (PhotoModel, AlbumModel, EventModel) => async (r
       });
     }
 
+    if (photo.uploadedBy && photo.uploadedBy.toString() === userId.toString()) {
+      req.photo = photo;
+      return next();
+    }
+
     const album = await AlbumModel.findById(photo.album_id);
     if (!album) {
       return res.status(404).json({
@@ -585,7 +655,14 @@ export const checkPhotoAccess = (PhotoModel, AlbumModel, EventModel) => async (r
       });
     }
 
-    const event = await EventModel.findById(album.event_id);
+    // Vérifier si l'utilisateur est le créateur de l'album
+    if (album.createdBy && album.createdBy.toString() === userId.toString()) {
+      req.photo = photo;
+      req.album = album;
+      return next();
+    }
+
+    const event = await EventModel.findById(album.event_id).populate('groupId');
     if (!event) {
       return res.status(404).json({
         code: 404,
@@ -593,14 +670,29 @@ export const checkPhotoAccess = (PhotoModel, AlbumModel, EventModel) => async (r
       });
     }
 
+    // Vérifier les permissions (participant, organisateur, ou admin de groupe)
     const isParticipant = event.participants.some(
       (participantId) => participantId.toString() === userId.toString()
     );
 
-    if (!isParticipant) {
+    const isOrganizer = event.organizers.some(
+      (organizerId) => organizerId.toString() === userId.toString()
+    );
+
+    let isGroupAdmin = false;
+    if (event.groupId && GroupModel) {
+      const group = await GroupModel.findById(event.groupId);
+      if (group) {
+        isGroupAdmin = group.administrators.some(
+          (adminId) => adminId.toString() === userId.toString()
+        );
+      }
+    }
+
+    if (!isParticipant && !isOrganizer && !isGroupAdmin) {
       return res.status(403).json({
         code: 403,
-        message: 'Seuls les participants à l\'événement peuvent accéder à cette photo'
+        message: 'Vous devez être participant, organisateur, créateur de la photo/album ou administrateur du groupe pour accéder à cette photo'
       });
     }
 

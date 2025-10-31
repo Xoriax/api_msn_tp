@@ -81,30 +81,6 @@ npm run dev
 npm start
 ```
 
-## Architecture de sécurité
-
-### Middleware d'authentification
-- `authenticateToken` : Vérification JWT obligatoire
-- Extraction automatique de l'ID utilisateur depuis le token
-
-### Middleware d'autorisation
-- `checkEventParticipant` : Vérification participation événement
-- `checkEventOrganizer` : Vérification rôle organisateur/créateur
-- `checkEventCreator` : Vérification créateur uniquement
-- `checkGroupMember` : Vérification appartenance groupe
-- `checkGroupAdmin` : Vérification admin/créateur groupe
-- `checkGroupCreator` : Vérification créateur groupe uniquement
-- `checkDiscussionAccess` : Accès discussion basé sur événement/groupe
-- `checkPollCreator` : Vérification créateur sondage
-- `checkPollResultsAccess` : Accès résultats sondage
-- `checkPollDeleteAccess` : Suppression sondage
-- `checkAlbumAccess` : Accès album basé sur participation
-- `checkAlbumManageAccess` : Gestion album (créateur/organisateur)
-- `checkPhotoAccess` : Accès photo basé sur album
-- `checkPhotoUploader` : Vérification uploader photo
-- `checkTicketOwner` : Vérification propriétaire billet
-- `checkTicketTypeManageAccess` : Gestion types billets
-
 ### Modèle de permissions
 - **Créateur** : Permissions complètes sur la ressource
 - **Organisateur/Admin** : Permissions de gestion (événements/groupes)
@@ -141,71 +117,11 @@ src/
     └── ticketType.mjs
 ```
 
-## API Endpoints
+## API Endpoints Doc
 
-### Authentification
-- `POST /register` - Inscription
-- `POST /login` - Connexion
-
-### Utilisateurs
-- `GET /users` - Liste utilisateurs (admin)
-- `GET /users/:id` - Profil utilisateur
-- `PUT /users/:id` - Modification profil
-- `DELETE /users/:id` - Suppression compte
-
-### Événements
-- `GET /events/public` - Événements publics
-- `POST /events` - Création événement
-- `GET /events/:id` - Détails événement
-- `PUT /events/:id` - Modification événement
-- `DELETE /events/:id` - Suppression événement
-- `POST /events/:id/join` - Rejoindre événement
-- `POST /events/:id/leave` - Quitter événement
-
-### Groupes
-- `GET /groups` - Liste groupes
-- `POST /groups` - Création groupe
-- `GET /groups/:id` - Détails groupe
-- `PUT /groups/:id` - Modification groupe
-- `DELETE /groups/:id` - Suppression groupe
-- `POST /groups/:id/join` - Rejoindre groupe
-- `POST /groups/:id/leave` - Quitter groupe
-
-### Discussions
-- `GET /groups/:id/discussion` - Discussion groupe
-- `POST /groups/:id/discussion` - Créer discussion groupe
-- `GET /events/:id/discussion` - Discussion événement
-- `POST /events/:id/discussion` - Créer discussion événement
-- `POST /discussions/:id/messages` - Nouveau message
-- `POST /discussions/:id/messages/:messageId/replies` - Répondre message
-
-### Sondages
-- `GET /events/:id/polls` - Sondages événement
-- `POST /events/:id/polls` - Créer sondage
-- `POST /polls/:id/vote` - Voter sondage
-- `GET /polls/:id/results` - Résultats sondage
-- `PUT /polls/:id` - Modifier sondage
-- `DELETE /polls/:id` - Supprimer sondage
-
-### Albums et Photos
-- `GET /events/:id/albums` - Albums événement
-- `POST /events/:id/albums` - Créer album
-- `GET /albums/:id/photos` - Photos album
-- `POST /albums/:id/photos` - Ajouter photo
-- `PUT /albums/:id` - Modifier album
-- `DELETE /albums/:id` - Supprimer album
-- `DELETE /photos/:id` - Supprimer photo
-
-### Billetterie
-- `GET /events/:id/ticket-types` - Types billets
-- `POST /events/:id/ticket-types` - Créer type billet
-- `POST /ticket-types/:id/purchase` - Acheter billet
-- `GET /tickets/:number` - Détails billet
-- `GET /events/:id/tickets` - Billets événement
-- `POST /tickets/:number/use` - Utiliser billet
-- `PUT /ticket-types/:id` - Modifier type billet
-- `DELETE /ticket-types/:id` - Supprimer type billet
-- `DELETE /tickets/:number` - Annuler billet
+```bash
+https://.postman.co/workspace/My-Workspace~281493ef-5f23-43b2-8bd3-243daae25e69/collection/28620833-b1aab039-7348-4665-a0bb-68e6c9d8b7f4?action=share&creator=28620833
+```
 
 ## Technologies utilisées
 

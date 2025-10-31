@@ -136,9 +136,14 @@ export default class Discussions {
         try {
           const { groupId } = req.params;
 
+          console.log('[DEBUG] createGroupDiscussion - GroupId:', groupId);
+          console.log('[DEBUG] createGroupDiscussion - UserId:', req.user.userId);
+
           const existingDiscussion = await this.DiscussionModel.findOne({
             linked_to_group: groupId
           });
+
+          console.log('[DEBUG] createGroupDiscussion - Existing discussion:', existingDiscussion);
 
           if (existingDiscussion) {
             return res.status(400).json({

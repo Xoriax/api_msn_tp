@@ -3,6 +3,7 @@ import TicketTypeSchema from '../models/ticketType.mjs';
 import TicketSchema from '../models/ticket.mjs';
 import EventSchema from '../models/event.mjs';
 import UserSchema from '../models/user.mjs';
+import GroupSchema from '../models/group.mjs';
 import {
   authenticateToken,
   checkEventParticipant,
@@ -17,6 +18,7 @@ export default class Tickets {
     this.TicketModel = connect.model('Ticket', TicketSchema);
     this.EventModel = connect.model('Event', EventSchema);
     this.UserModel = connect.model('User', UserSchema);
+    this.GroupModel = connect.model('Group', GroupSchema);
 
     this.run();
   }
@@ -147,7 +149,7 @@ export default class Tickets {
             });
           }
 
-          const event = await this.EventModel.findById(ticketType.event_id);
+          const event = await this.EventModel.findById(ticketType.event_id).populate('groupId');
           if (!event) {
             return res.status(404).json({
               code: 404,
@@ -159,10 +161,24 @@ export default class Tickets {
             (participantId) => participantId.toString() === currentUserId.toString()
           );
 
-          if (!isParticipant) {
+          const isOrganizer = event.organizers.some(
+            (organizerId) => organizerId.toString() === currentUserId.toString()
+          );
+
+          let isGroupAdmin = false;
+          if (event.groupId) {
+            const group = await this.GroupModel.findById(event.groupId);
+            if (group) {
+              isGroupAdmin = group.administrators.some(
+                (adminId) => adminId.toString() === currentUserId.toString()
+              );
+            }
+          }
+
+          if (!isParticipant && !isOrganizer && !isGroupAdmin) {
             return res.status(403).json({
               code: 403,
-              message: 'Seuls les participants à l\'événement peuvent acheter des billets'
+              message: 'Vous devez être participant, organisateur ou administrateur du groupe pour acheter des billets'
             });
           }
 

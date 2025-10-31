@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import PollSchema from '../models/poll.mjs';
 import EventSchema from '../models/event.mjs';
+import GroupSchema from '../models/group.mjs';
 import {
   authenticateToken,
   checkEventParticipant,
@@ -14,6 +15,7 @@ export default class Polls {
     this.app = app;
     this.PollModel = connect.model('Poll', PollSchema);
     this.EventModel = connect.model('Event', EventSchema);
+    this.GroupModel = connect.model('Group', GroupSchema);
 
     this.run();
   }
@@ -197,7 +199,7 @@ export default class Polls {
             });
           }
 
-          const event = await this.EventModel.findById(poll.event_id);
+          const event = await this.EventModel.findById(poll.event_id).populate('groupId');
           if (!event) {
             return res.status(404).json({
               code: 404,
@@ -209,10 +211,26 @@ export default class Polls {
             (participantId) => participantId.toString() === currentUserId.toString()
           );
 
-          if (!isParticipant) {
+          const isOrganizer = event.organizers.some(
+            (organizerId) => organizerId.toString() === currentUserId.toString()
+          );
+
+          const isPollCreator = poll.createdBy.toString() === currentUserId.toString();
+
+          let isGroupAdmin = false;
+          if (event.groupId) {
+            const group = await this.GroupModel.findById(event.groupId);
+            if (group) {
+              isGroupAdmin = group.administrators.some(
+                (adminId) => adminId.toString() === currentUserId.toString()
+              );
+            }
+          }
+
+          if (!isParticipant && !isOrganizer && !isPollCreator && !isGroupAdmin) {
             return res.status(403).json({
               code: 403,
-              message: 'Seuls les participants à l\'événement peuvent voter'
+              message: 'Vous devez être participant, organisateur, créateur du sondage ou administrateur du groupe pour voter'
             });
           }
 

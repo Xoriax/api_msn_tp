@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import AlbumModel from '../models/album.mjs';
 import PhotoModel from '../models/photo.mjs';
 import EventSchema from '../models/event.mjs';
+import GroupSchema from '../models/group.mjs';
 import {
   authenticateToken,
   checkAlbumAccess,
@@ -15,6 +16,7 @@ const Photos = class Photos {
     this.AlbumModel = connect.model('Album', AlbumModel);
     this.PhotoModel = connect.model('Photo', PhotoModel);
     this.EventModel = connect.model('Event', EventSchema);
+    this.GroupModel = connect.model('Group', GroupSchema);
 
     this.run();
   }
@@ -23,7 +25,7 @@ const Photos = class Photos {
     this.app.get(
       '/albums/:albumId/photos',
       authenticateToken,
-      checkAlbumAccess(this.AlbumModel, this.EventModel),
+      checkAlbumAccess(this.AlbumModel, this.EventModel, this.GroupModel),
       async (req, res) => {
         try {
           const { albumId } = req.params;
@@ -67,7 +69,7 @@ const Photos = class Photos {
     this.app.get(
       '/photos/:id',
       authenticateToken,
-      checkPhotoAccess(this.PhotoModel, this.AlbumModel, this.EventModel),
+      checkPhotoAccess(this.PhotoModel, this.AlbumModel, this.EventModel, this.GroupModel),
       async (req, res) => {
         try {
           const { id } = req.params;
@@ -106,7 +108,7 @@ const Photos = class Photos {
     this.app.post(
       '/albums/:albumId/photos',
       authenticateToken,
-      checkAlbumAccess(this.AlbumModel, this.EventModel),
+      checkAlbumAccess(this.AlbumModel, this.EventModel, this.GroupModel),
       async (req, res) => {
         try {
           const { albumId } = req.params;
@@ -241,7 +243,7 @@ const Photos = class Photos {
     this.app.post(
       '/photos/:id/comments',
       authenticateToken,
-      checkPhotoAccess(this.PhotoModel, this.AlbumModel, this.EventModel),
+      checkPhotoAccess(this.PhotoModel, this.AlbumModel, this.EventModel, this.GroupModel),
       async (req, res) => {
         try {
           const { id } = req.params;
@@ -366,7 +368,7 @@ const Photos = class Photos {
     this.app.post(
       '/photos/:id/like',
       authenticateToken,
-      checkPhotoAccess(this.PhotoModel, this.AlbumModel, this.EventModel),
+      checkPhotoAccess(this.PhotoModel, this.AlbumModel, this.EventModel, this.GroupModel),
       async (req, res) => {
         try {
           const { id } = req.params;
@@ -418,7 +420,7 @@ const Photos = class Photos {
     this.app.delete(
       '/photos/:id/like',
       authenticateToken,
-      checkPhotoAccess(this.PhotoModel, this.AlbumModel, this.EventModel),
+      checkPhotoAccess(this.PhotoModel, this.AlbumModel, this.EventModel, this.GroupModel),
       async (req, res) => {
         try {
           const { id } = req.params;

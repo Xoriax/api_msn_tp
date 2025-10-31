@@ -1,6 +1,7 @@
 import AlbumModel from '../models/album.mjs';
 import PhotoModel from '../models/photo.mjs';
 import EventSchema from '../models/event.mjs';
+import GroupSchema from '../models/group.mjs';
 import {
   authenticateToken,
   checkAlbumAccess,
@@ -15,6 +16,7 @@ const Albums = class Albums {
     this.AlbumModel = connect.model('Album', AlbumModel);
     this.PhotoModel = connect.model('Photo', PhotoModel);
     this.EventModel = connect.model('Event', EventSchema);
+    this.GroupModel = connect.model('Group', GroupSchema);
 
     this.run();
   }
@@ -108,7 +110,7 @@ const Albums = class Albums {
     this.app.get(
       '/albums/:id',
       authenticateToken,
-      checkAlbumAccess(this.AlbumModel, this.EventModel),
+      checkAlbumAccess(this.AlbumModel, this.EventModel, this.GroupModel),
       async (req, res) => {
         try {
           const { id } = req.params;

@@ -394,18 +394,28 @@ export default class Groups {
           (memberId) => memberId.toString() === userId.toString()
         );
 
-        if (!isMember) {
+        const isAdmin = group.administrators.some(
+          (adminId) => adminId.toString() === userId.toString()
+        );
+
+        if (!isMember && !isAdmin) {
           return res.status(400).json({
             code: 400,
             message: 'Vous n\'êtes pas membre de ce groupe'
           });
         }
 
-        if (group.administrators.includes(userId)) {
-          return res.status(400).json({
-            code: 400,
-            message: 'Un administrateur ne peut pas quitter le groupe'
-          });
+        if (isAdmin) {
+          if (group.administrators.length === 1 && group.members.length > 0) {
+            return res.status(400).json({
+              code: 400,
+              message: 'Vous êtes le seul administrateur. Nommez un autre administrateur avant de quitter le groupe ou supprimez le groupe.'
+            });
+          }
+
+          group.administrators = group.administrators.filter(
+            (adminId) => adminId.toString() !== userId
+          );
         }
 
         group.members = group.members.filter(
@@ -428,6 +438,78 @@ export default class Groups {
     });
   }
 
+  promoteToAdmin() {
+    this.app.post(
+      '/groups/:id/promote/:userId',
+      authenticateToken,
+      checkGroupAdmin(this.GroupModel),
+      async (req, res) => {
+        try {
+          const { id, userId: targetUserId } = req.params;
+
+          const isValidGroupId = mongoose.Types.ObjectId.isValid(id);
+          const isValidUserId = mongoose.Types.ObjectId.isValid(targetUserId);
+
+          if (!isValidGroupId || !isValidUserId) {
+            return res.status(400).json({
+              code: 400,
+              message: 'ID de groupe ou d\'utilisateur invalide'
+            });
+          }
+
+          const group = await this.GroupModel.findById(id);
+
+          if (!group) {
+            return res.status(404).json({
+              code: 404,
+              message: 'Groupe non trouvé'
+            });
+          }
+
+          const isMember = group.members.some(
+            (memberId) => memberId.toString() === targetUserId.toString()
+          );
+
+          if (!isMember) {
+            return res.status(400).json({
+              code: 400,
+              message: 'L\'utilisateur doit être membre du groupe'
+            });
+          }
+
+          const isAlreadyAdmin = group.administrators.some(
+            (adminId) => adminId.toString() === targetUserId.toString()
+          );
+
+          if (isAlreadyAdmin) {
+            return res.status(400).json({
+              code: 400,
+              message: 'L\'utilisateur est déjà administrateur'
+            });
+          }
+
+          group.administrators.push(targetUserId);
+          group.members = group.members.filter(
+            (memberId) => memberId.toString() !== targetUserId.toString()
+          );
+
+          await group.save();
+
+          return res.status(200).json({
+            code: 200,
+            message: 'Utilisateur promu administrateur avec succès'
+          });
+        } catch (error) {
+          return res.status(500).json({
+            code: 500,
+            message: 'Erreur lors de la promotion',
+            error: error.message
+          });
+        }
+      }
+    );
+  }
+
   run() {
     this.getAllGroups();
     this.getGroupById();
@@ -436,5 +518,6 @@ export default class Groups {
     this.deleteGroup();
     this.joinGroup();
     this.leaveGroup();
+    this.promoteToAdmin();
   }
 }
