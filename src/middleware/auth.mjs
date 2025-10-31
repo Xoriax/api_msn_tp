@@ -97,3 +97,600 @@ export const checkEventOrganizer = (EventModel) => async (req, res, next) => {
     });
   }
 };
+
+export const checkEventCreator = (EventModel) => async (req, res, next) => {
+  try {
+    const { id: eventId } = req.params;
+    const { userId } = req.user;
+
+    const event = await EventModel.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Événement non trouvé'
+      });
+    }
+
+    const isCreator = event.organizers.length > 0
+      && event.organizers[0].toString() === userId.toString();
+
+    if (!isCreator) {
+      return res.status(403).json({
+        code: 403,
+        message: 'Seul le créateur de l\'événement peut effectuer cette action'
+      });
+    }
+
+    req.event = event;
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      code: 500,
+      message: 'Erreur lors de la vérification des permissions',
+      error: error.message
+    });
+  }
+};
+
+export const checkGroupCreator = (GroupModel) => async (req, res, next) => {
+  try {
+    const { id: groupId } = req.params;
+    const { userId } = req.user;
+
+    const group = await GroupModel.findById(groupId);
+    if (!group) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Groupe non trouvé'
+      });
+    }
+
+    const isCreator = group.administrators.length > 0
+      && group.administrators[0].toString() === userId.toString();
+
+    if (!isCreator) {
+      return res.status(403).json({
+        code: 403,
+        message: 'Seul le créateur du groupe peut effectuer cette action'
+      });
+    }
+
+    req.group = group;
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      code: 500,
+      message: 'Erreur lors de la vérification des permissions',
+      error: error.message
+    });
+  }
+};
+
+export const checkGroupMember = (GroupModel) => async (req, res, next) => {
+  try {
+    const { groupId } = req.params;
+    const { userId } = req.user;
+
+    const group = await GroupModel.findById(groupId);
+    if (!group) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Groupe non trouvé'
+      });
+    }
+
+    const isMember = group.members.some(
+      (memberId) => memberId.toString() === userId.toString()
+    );
+
+    if (!isMember) {
+      return res.status(403).json({
+        code: 403,
+        message: 'Seuls les membres du groupe peuvent accéder à cette ressource'
+      });
+    }
+
+    req.group = group;
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      code: 500,
+      message: 'Erreur lors de la vérification de l\'appartenance au groupe',
+      error: error.message
+    });
+  }
+};
+
+export const checkEventParticipant = (EventModel) => async (req, res, next) => {
+  try {
+    const { eventId } = req.params;
+    const { userId } = req.user;
+
+    const event = await EventModel.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Événement non trouvé'
+      });
+    }
+
+    const isParticipant = event.participants.some(
+      (participantId) => participantId.toString() === userId.toString()
+    );
+
+    if (!isParticipant) {
+      return res.status(403).json({
+        code: 403,
+        message: 'Seuls les participants peuvent accéder à cette ressource'
+      });
+    }
+
+    req.event = event;
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      code: 500,
+      message: 'Erreur lors de la vérification de la participation à l\'événement',
+      error: error.message
+    });
+  }
+};
+
+export const checkDiscussionAccess = (
+  DiscussionModel,
+  GroupModel,
+  EventModel
+) => async (req, res, next) => {
+  try {
+    const { discussionId } = req.params;
+    const { userId } = req.user;
+
+    const discussion = await DiscussionModel.findById(discussionId);
+    if (!discussion) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Discussion non trouvée'
+      });
+    }
+
+    if (discussion.linked_to_group) {
+      const group = await GroupModel.findById(discussion.linked_to_group);
+      if (!group) {
+        return res.status(404).json({
+          code: 404,
+          message: 'Groupe associé à la discussion non trouvé'
+        });
+      }
+
+      const isMember = group.members.some(
+        (memberId) => memberId.toString() === userId.toString()
+      );
+
+      if (!isMember) {
+        return res.status(403).json({
+          code: 403,
+          message: 'Seuls les membres du groupe peuvent accéder à cette discussion'
+        });
+      }
+
+      req.group = group;
+    }
+
+    if (discussion.linked_to_event) {
+      const event = await EventModel.findById(discussion.linked_to_event);
+      if (!event) {
+        return res.status(404).json({
+          code: 404,
+          message: 'Événement associé à la discussion non trouvé'
+        });
+      }
+
+      const isParticipant = event.participants.some(
+        (participantId) => participantId.toString() === userId.toString()
+      );
+
+      if (!isParticipant) {
+        return res.status(403).json({
+          code: 403,
+          message: 'Seuls les participants à l\'événement peuvent accéder à cette discussion'
+        });
+      }
+
+      req.event = event;
+    }
+
+    req.discussion = discussion;
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      code: 500,
+      message: 'Erreur lors de la vérification de l\'accès à la discussion',
+      error: error.message
+    });
+  }
+};
+
+export const checkPollCreator = (PollModel) => async (req, res, next) => {
+  try {
+    const { id: pollId } = req.params;
+    const { userId } = req.user;
+
+    const poll = await PollModel.findById(pollId);
+    if (!poll) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Sondage non trouvé'
+      });
+    }
+
+    if (poll.createdBy.toString() !== userId.toString()) {
+      return res.status(403).json({
+        code: 403,
+        message: 'Seul le créateur du sondage peut effectuer cette action'
+      });
+    }
+
+    req.poll = poll;
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      code: 500,
+      message: 'Erreur lors de la vérification du créateur du sondage',
+      error: error.message
+    });
+  }
+};
+
+export const checkPollResultsAccess = (PollModel, EventModel) => async (req, res, next) => {
+  try {
+    const { id: pollId } = req.params;
+    const { userId } = req.user;
+
+    const poll = await PollModel.findById(pollId);
+    if (!poll) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Sondage non trouvé'
+      });
+    }
+
+    if (poll.createdBy.toString() === userId.toString()) {
+      req.poll = poll;
+      return next();
+    }
+
+    const event = await EventModel.findById(poll.event_id);
+    if (!event) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Événement associé au sondage non trouvé'
+      });
+    }
+
+    const isEventOrganizer = event.organizers.some(
+      (organizerId) => organizerId.toString() === userId.toString()
+    );
+
+    if (!isEventOrganizer) {
+      return res.status(403).json({
+        code: 403,
+        message: 'Seuls le créateur du sondage ou les organisateurs de l\'événement peuvent accéder aux résultats'
+      });
+    }
+
+    req.poll = poll;
+    req.event = event;
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      code: 500,
+      message: 'Erreur lors de la vérification de l\'accès aux résultats',
+      error: error.message
+    });
+  }
+};
+
+export const checkPollDeleteAccess = (PollModel, EventModel) => async (req, res, next) => {
+  try {
+    const { id: pollId } = req.params;
+    const { userId } = req.user;
+
+    const poll = await PollModel.findById(pollId);
+    if (!poll) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Sondage non trouvé'
+      });
+    }
+
+    if (poll.createdBy.toString() === userId.toString()) {
+      req.poll = poll;
+      return next();
+    }
+
+    const event = await EventModel.findById(poll.event_id);
+    if (!event) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Événement associé au sondage non trouvé'
+      });
+    }
+
+    const isEventOrganizer = event.organizers.some(
+      (organizerId) => organizerId.toString() === userId.toString()
+    );
+
+    if (!isEventOrganizer) {
+      return res.status(403).json({
+        code: 403,
+        message: 'Seuls le créateur du sondage ou les organisateurs de l\'événement peuvent supprimer ce sondage'
+      });
+    }
+
+    req.poll = poll;
+    req.event = event;
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      code: 500,
+      message: 'Erreur lors de la vérification des permissions de suppression',
+      error: error.message
+    });
+  }
+};
+
+export const checkAlbumAccess = (AlbumModel, EventModel) => async (req, res, next) => {
+  try {
+    const { id: albumId, albumId: paramAlbumId } = req.params;
+    const { userId } = req.user;
+    const albumIdToUse = albumId || paramAlbumId;
+
+    const album = await AlbumModel.findById(albumIdToUse);
+    if (!album) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Album non trouvé'
+      });
+    }
+
+    const event = await EventModel.findById(album.event_id);
+    if (!event) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Événement associé à l\'album non trouvé'
+      });
+    }
+
+    const isParticipant = event.participants.some(
+      (participantId) => participantId.toString() === userId.toString()
+    );
+
+    if (!isParticipant) {
+      return res.status(403).json({
+        code: 403,
+        message: 'Seuls les participants à l\'événement peuvent accéder à cet album'
+      });
+    }
+
+    req.album = album;
+    req.event = event;
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      code: 500,
+      message: 'Erreur lors de la vérification de l\'accès à l\'album',
+      error: error.message
+    });
+  }
+};
+
+export const checkAlbumManageAccess = (AlbumModel, EventModel) => async (req, res, next) => {
+  try {
+    const { id: albumId } = req.params;
+    const { userId } = req.user;
+
+    const album = await AlbumModel.findById(albumId);
+    if (!album) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Album non trouvé'
+      });
+    }
+
+    if (album.createdBy && album.createdBy.toString() === userId.toString()) {
+      req.album = album;
+      return next();
+    }
+
+    const event = await EventModel.findById(album.event_id);
+    if (!event) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Événement associé à l\'album non trouvé'
+      });
+    }
+
+    const isEventOrganizer = event.organizers.some(
+      (organizerId) => organizerId.toString() === userId.toString()
+    );
+
+    if (!isEventOrganizer) {
+      return res.status(403).json({
+        code: 403,
+        message: 'Seuls le créateur de l\'album ou les organisateurs de l\'événement peuvent effectuer cette action'
+      });
+    }
+
+    req.album = album;
+    req.event = event;
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      code: 500,
+      message: 'Erreur lors de la vérification des permissions sur l\'album',
+      error: error.message
+    });
+  }
+};
+
+export const checkPhotoUploader = (PhotoModel) => async (req, res, next) => {
+  try {
+    const { id: photoId } = req.params;
+    const { userId } = req.user;
+
+    const photo = await PhotoModel.findById(photoId);
+    if (!photo) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Photo non trouvée'
+      });
+    }
+
+    if (photo.uploadedBy.toString() !== userId.toString()) {
+      return res.status(403).json({
+        code: 403,
+        message: 'Seul celui qui a uploadé la photo peut effectuer cette action'
+      });
+    }
+
+    req.photo = photo;
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      code: 500,
+      message: 'Erreur lors de la vérification du créateur de la photo',
+      error: error.message
+    });
+  }
+};
+
+export const checkPhotoAccess = (PhotoModel, AlbumModel, EventModel) => async (req, res, next) => {
+  try {
+    const { id: photoId } = req.params;
+    const { userId } = req.user;
+
+    const photo = await PhotoModel.findById(photoId);
+    if (!photo) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Photo non trouvée'
+      });
+    }
+
+    const album = await AlbumModel.findById(photo.album_id);
+    if (!album) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Album associé à la photo non trouvé'
+      });
+    }
+
+    const event = await EventModel.findById(album.event_id);
+    if (!event) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Événement associé à la photo non trouvé'
+      });
+    }
+
+    const isParticipant = event.participants.some(
+      (participantId) => participantId.toString() === userId.toString()
+    );
+
+    if (!isParticipant) {
+      return res.status(403).json({
+        code: 403,
+        message: 'Seuls les participants à l\'événement peuvent accéder à cette photo'
+      });
+    }
+
+    req.photo = photo;
+    req.album = album;
+    req.event = event;
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      code: 500,
+      message: 'Erreur lors de la vérification de l\'accès à la photo',
+      error: error.message
+    });
+  }
+};
+
+export const checkTicketOwner = (TicketModel) => async (req, res, next) => {
+  try {
+    const { ticketNumber } = req.params;
+
+    const ticket = await TicketModel.findOne({ ticket_number: ticketNumber });
+    if (!ticket) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Billet non trouvé'
+      });
+    }
+
+    const { user } = req;
+    if (ticket.buyerInfo.email !== user.email) {
+      return res.status(403).json({
+        code: 403,
+        message: 'Seul l\'acheteur du billet peut effectuer cette action'
+      });
+    }
+
+    req.ticket = ticket;
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      code: 500,
+      message: 'Erreur lors de la vérification du propriétaire du billet',
+      error: error.message
+    });
+  }
+};
+
+export const checkTicketTypeManageAccess = (
+  TicketTypeModel,
+  EventModel
+) => async (req, res, next) => {
+  try {
+    const { id: ticketTypeId } = req.params;
+    const { userId } = req.user;
+
+    const ticketType = await TicketTypeModel.findById(ticketTypeId);
+    if (!ticketType) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Type de billet non trouvé'
+      });
+    }
+
+    const event = await EventModel.findById(ticketType.event_id);
+    if (!event) {
+      return res.status(404).json({
+        code: 404,
+        message: 'Événement associé au type de billet non trouvé'
+      });
+    }
+
+    const isEventOrganizer = event.organizers.some(
+      (organizerId) => organizerId.toString() === userId.toString()
+    );
+
+    if (!isEventOrganizer) {
+      return res.status(403).json({
+        code: 403,
+        message: 'Seuls les organisateurs de l\'événement peuvent gérer les types de billets'
+      });
+    }
+
+    req.ticketType = ticketType;
+    req.event = event;
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      code: 500,
+      message: 'Erreur lors de la vérification des permissions sur le type de billet',
+      error: error.message
+    });
+  }
+};

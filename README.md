@@ -1,348 +1,242 @@
-# API Events Management System v1.3.0
+# API MSN Events
 
-REST API complète pour la gestion d'événements avec authentification JWT, billetterie, albums photos et système de discussions.
+Une API REST complète pour la gestion d'événements sociaux avec système d'authentification et autorisation granulaire.
+
+## Fonctionnalités
+
+### Authentification
+- Système JWT avec tokens sécurisés
+- Inscription et connexion utilisateur
+- Middleware d'authentification pour toutes les routes protégées
+
+### Gestion des utilisateurs
+- Profils utilisateur complets
+- Gestion des permissions et rôles
+
+### Événements
+- Création et gestion d'événements
+- Système de participants
+- Distinction créateur/organisateur
+- Événements publics et privés
+
+### Groupes
+- Création et administration de groupes
+- Système de membres avec rôles
+- Événements liés aux groupes
+
+### Discussions
+- Discussions par événement ou groupe
+- Messages et réponses en thread
+- Contrôle d'accès basé sur la participation
+
+### Sondages
+- Création de sondages pour les événements
+- Vote et consultation des résultats
+- Permissions différenciées créateur/participant
+
+### Albums et Photos
+- Gestion d'albums liés aux événements
+- Upload et partage de photos
+- Contrôle d'accès basé sur la participation
+
+### Billetterie
+- Création de types de billets
+- Système d'achat et annulation
+- Gestion des quotas et disponibilités
+- Vérification propriétaire pour les actions
 
 ## Installation
 
+### Prérequis
+- Node.js 18+
+- MongoDB
+- npm ou yarn
+
+### Configuration
+1. Cloner le repository
 ```bash
-git clone <repository-url>
-cd api
+git clone https://github.com/Xoriax/api_msn_tp.git
+cd api_msn_tp
+```
+
+2. Installer les dépendances
+```bash
 npm install
 ```
 
-## Configuration
-
+3. Configurer l'environnement
 Créer un fichier `.env` à la racine :
-
 ```env
-PORT=3000
-MONGODB_URI=mongodb://localhost:27017/events_api
-JWT_SECRET=votre-cle-secrete-complexe
 NODE_ENV=development
+PORT=3000
+MONGODB_URI=mongodb://localhost:27017/facebook_events
 ```
 
-## Démarrage
-
+4. Démarrer l'application
 ```bash
-npm run dev    # Mode développement
-npm start      # Mode production
+# Mode développement avec hot reload
+npm run dev
+
+# Mode production
+npm start
 ```
 
-L'API sera accessible sur `http://localhost:3000`
+## Architecture de sécurité
 
-## Authentification
+### Middleware d'authentification
+- `authenticateToken` : Vérification JWT obligatoire
+- Extraction automatique de l'ID utilisateur depuis le token
 
-### Inscription
+### Middleware d'autorisation
+- `checkEventParticipant` : Vérification participation événement
+- `checkEventOrganizer` : Vérification rôle organisateur/créateur
+- `checkEventCreator` : Vérification créateur uniquement
+- `checkGroupMember` : Vérification appartenance groupe
+- `checkGroupAdmin` : Vérification admin/créateur groupe
+- `checkGroupCreator` : Vérification créateur groupe uniquement
+- `checkDiscussionAccess` : Accès discussion basé sur événement/groupe
+- `checkPollCreator` : Vérification créateur sondage
+- `checkPollResultsAccess` : Accès résultats sondage
+- `checkPollDeleteAccess` : Suppression sondage
+- `checkAlbumAccess` : Accès album basé sur participation
+- `checkAlbumManageAccess` : Gestion album (créateur/organisateur)
+- `checkPhotoAccess` : Accès photo basé sur album
+- `checkPhotoUploader` : Vérification uploader photo
+- `checkTicketOwner` : Vérification propriétaire billet
+- `checkTicketTypeManageAccess` : Gestion types billets
 
-```http
-POST /users
-Content-Type: application/json
+### Modèle de permissions
+- **Créateur** : Permissions complètes sur la ressource
+- **Organisateur/Admin** : Permissions de gestion (événements/groupes)
+- **Participant/Membre** : Accès lecture et interactions limitées
+- **Propriétaire** : Permissions sur ses propres ressources (billets, photos)
 
-{
-  "email": "user@example.com",
-  "firstname": "John",
-  "lastname": "Doe", 
-  "password": "password123",
-  "age": 25,
-  "city": "Paris"
-}
-```
-
-### Connexion
-
-```http
-POST /auth/login
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "password": "password123"
-}
-```
-
-Retourne un token JWT à inclure dans l'en-tête `Authorization: Bearer <token>` pour les routes protégées.
-
-## Endpoints API
-
-### Utilisateurs
-
-| Méthode | Route | Description | Protection |
-|---------|-------|-------------|------------|
-| GET | `/users` | Liste des utilisateurs | Non |
-| GET | `/users/:id` | Détails d'un utilisateur | Non |
-| POST | `/users` | Créer un compte | Non |
-| PUT | `/users/:id` | Modifier son profil | JWT |
-| DELETE | `/users/:id` | Supprimer son compte | JWT |
-| GET | `/auth/profile` | Mon profil | JWT |
-| POST | `/auth/logout` | Déconnexion | JWT |
-
-### Événements
-
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| GET | `/events` | Liste des événements |
-| GET | `/events/:id` | Détails d'un événement |
-| POST | `/events` | Créer un événement |
-| PUT | `/events/:id` | Modifier un événement |
-| DELETE | `/events/:id` | Supprimer un événement |
-| POST | `/events/:id/join` | Rejoindre un événement |
-| POST | `/events/:id/leave` | Quitter un événement |
-
-### Groupes
-
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| GET | `/groups` | Liste des groupes |
-| GET | `/groups/:id` | Détails d'un groupe |
-| POST | `/groups` | Créer un groupe |
-| PUT | `/groups/:id` | Modifier un groupe |
-| DELETE | `/groups/:id` | Supprimer un groupe |
-| POST | `/groups/:id/join` | Rejoindre un groupe |
-| POST | `/groups/:id/leave` | Quitter un groupe |
-
-### Discussions
-
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| GET | `/discussions` | Liste des discussions |
-| GET | `/discussions/:id` | Détails d'une discussion |
-| POST | `/discussions` | Créer une discussion |
-| PUT | `/discussions/:id` | Modifier une discussion |
-| DELETE | `/discussions/:id` | Supprimer une discussion |
-| POST | `/discussions/:id/messages` | Ajouter un message |
-| DELETE | `/discussions/:discussionId/messages/:messageId` | Supprimer un message |
-
-### Sondages
-
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| GET | `/polls` | Liste des sondages |
-| GET | `/polls/:id` | Détails d'un sondage |
-| POST | `/polls` | Créer un sondage |
-| PUT | `/polls/:id` | Modifier un sondage |
-| DELETE | `/polls/:id` | Supprimer un sondage |
-| POST | `/polls/:id/vote` | Voter dans un sondage |
-| DELETE | `/polls/:id/vote` | Retirer son vote |
-
-### Albums et Photos
-
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| GET | `/albums` | Liste des albums |
-| GET | `/events/:eventId/albums` | Albums d'un événement |
-| POST | `/events/:eventId/albums` | Créer un album |
-| GET | `/albums/:id` | Détails d'un album |
-| PUT | `/albums/:id` | Modifier un album |
-| DELETE | `/albums/:id` | Supprimer un album |
-| GET | `/albums/:albumId/photos` | Photos d'un album |
-| POST | `/albums/:albumId/photos` | Ajouter une photo |
-| GET | `/photos/:id` | Détails d'une photo |
-| PUT | `/photos/:id` | Modifier une photo |
-| DELETE | `/photos/:id` | Supprimer une photo |
-| POST | `/photos/:id/like` | Liker une photo |
-| DELETE | `/photos/:id/like` | Retirer un like |
-| POST | `/photos/:id/comments` | Commenter une photo |
-| DELETE | `/photos/:id/comments/:commentId` | Supprimer un commentaire |
-
-### Billetterie
-
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| GET | `/events/:eventId/ticket-types` | Types de billets |
-| POST | `/events/:eventId/ticket-types` | Créer un type de billet |
-| PUT | `/ticket-types/:id` | Modifier un type de billet |
-| DELETE | `/ticket-types/:id` | Supprimer un type de billet |
-| POST | `/ticket-types/:ticketTypeId/purchase` | Acheter un billet |
-| GET | `/tickets/:ticketNumber` | Détails d'un billet |
-| DELETE | `/tickets/:ticketNumber` | Annuler un billet |
-| GET | `/events/:eventId/tickets` | Billets d'un événement |
-
-## Exemples de requêtes
-
-### Créer un événement
-
-```http
-POST /events
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "name": "Concert de Jazz",
-  "description": "Soirée jazz exceptionnelle",
-  "startDate": "2025-12-01T20:00:00Z",
-  "endDate": "2025-12-01T23:00:00Z",
-  "location": "Salle Pleyel, Paris",
-  "max_participants": 200
-}
-```
-
-### Créer un type de billet
-
-```http
-POST /events/:eventId/ticket-types
-Content-Type: application/json
-
-{
-  "name": "Billet VIP",
-  "price": 89.99,
-  "quantityLimit": 50,
-  "description": "Accès VIP avec boissons incluses"
-}
-```
-
-### Acheter un billet
-
-```http
-POST /ticket-types/:ticketTypeId/purchase
-Content-Type: application/json
-
-{
-  "buyerInfo": {
-    "firstname": "Marie",
-    "lastname": "Dupont",
-    "email": "marie@example.com",
-    "address": {
-      "street": "123 Rue de la Paix",
-      "city": "Paris",
-      "postal_code": "75001",
-      "country": "France"
-    }
-  }
-}
-```
-
-### Liker une photo
-
-```http
-POST /photos/:id/like
-Content-Type: application/json
-
-{
-  "userId": "64f12a3b1c9d4e5f6a7b8c9d"
-}
-```
-
-## Structure des données
-
-### Réponse standard
-
-Toutes les réponses suivent ce format :
-
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": { /* données */ },
-  "pagination": { /* si applicable */ }
-}
-```
-
-### Pagination
-
-Les listes supportent la pagination :
-
-```http
-GET /events?page=2&limit=10
-```
-
-```json
-{
-  "code": 200,
-  "message": "success",
-  "data": [ /* événements */ ],
-  "pagination": {
-    "page": 2,
-    "limit": 10,
-    "total": 156,
-    "pages": 16
-  }
-}
-```
-
-## Codes de réponse
-
-| Code | Description |
-|------|-------------|
-| 200 | Succès |
-| 201 | Création réussie |
-| 400 | Données invalides |
-| 401 | Non authentifié |
-| 403 | Non autorisé |
-| 404 | Ressource non trouvée |
-| 500 | Erreur serveur |
-
-## Sécurité
-
-- Authentification JWT avec expiration 24h
-- Hachage des mots de passe avec bcrypt
-- Validation des données d'entrée
-- Protection CORS configurée
-- Rate limiting par IP
-
-## Technologies
-
-- Node.js 18+
-- Express.js 4.x
-- MongoDB 6+ avec Mongoose
-- JWT pour l'authentification
-- bcrypt pour le hachage des mots de passe
-
-## Architecture
+## Structure du projet
 
 ```
 src/
-├── config.mjs                 # Configuration générale
-├── server.mjs                 # Point d'entrée du serveur
-├── controllers/               # Contrôleurs de routes
-│   ├── users.mjs             # Gestion utilisateurs et auth
-│   ├── events.controller.mjs # Gestion des événements
-│   ├── groups.controller.mjs # Gestion des groupes
-│   ├── discussions.controller.mjs
-│   ├── polls.controller.mjs
-│   ├── albums.controller.mjs
-│   ├── photos.controller.mjs
-│   ├── tickets.controller.mjs
-│   └── routes.mjs            # Routing central
-├── models/                   # Modèles de données MongoDB
-│   ├── user.mjs
-│   ├── event.mjs
-│   ├── group.mjs
-│   ├── discussion.mjs
-│   ├── poll.mjs
-│   ├── album.mjs
-│   ├── photo.mjs
-│   ├── ticket.mjs
-│   └── ticketType.mjs
-└── middleware/
-    └── auth.mjs              # Middleware d'authentification
+├── config.mjs              # Configuration application
+├── server.mjs              # Configuration serveur Express
+├── controllers/            # Contrôleurs routes API
+│   ├── routes.mjs          # Index des contrôleurs
+│   ├── users.mjs           # Gestion utilisateurs
+│   ├── events.controller.mjs    # Gestion événements
+│   ├── groups.controller.mjs    # Gestion groupes
+│   ├── discussions.controller.mjs # Gestion discussions
+│   ├── polls.controller.mjs     # Gestion sondages
+│   ├── albums.controller.mjs    # Gestion albums
+│   ├── photos.controller.mjs    # Gestion photos
+│   └── tickets.controller.mjs   # Gestion billetterie
+├── middleware/
+│   └── auth.mjs            # Middlewares authentification/autorisation
+└── models/                 # Modèles MongoDB/Mongoose
+    ├── user.mjs
+    ├── event.mjs
+    ├── group.mjs
+    ├── discussion.mjs
+    ├── poll.mjs
+    ├── album.mjs
+    ├── photo.mjs
+    ├── ticket.mjs
+    └── ticketType.mjs
 ```
 
-## Fonctionnalités principales
+## API Endpoints
 
-- Système d'authentification complet avec JWT
-- Gestion d'événements avec participants
-- Groupes publics, privés et secrets
-- Discussions avec messages en temps réel
-- Sondages avec système de vote
-- Albums photos avec likes et commentaires
-- Billetterie intégrée avec types de billets
-- Annulation de billets avec remboursement automatique
-- Suppression intelligente des types de billets
-- Pagination sur toutes les collections
-- Validation et gestion d'erreurs robuste
+### Authentification
+- `POST /register` - Inscription
+- `POST /login` - Connexion
 
-## Nouvelles fonctionnalités v1.3.0
+### Utilisateurs
+- `GET /users` - Liste utilisateurs (admin)
+- `GET /users/:id` - Profil utilisateur
+- `PUT /users/:id` - Modification profil
+- `DELETE /users/:id` - Suppression compte
 
-- Système de likes pour les photos
-- Annulation de billets avec traçabilité
-- Suppression intelligente des types de billets
-- Amélioration des validations de données
-- Messages d'erreur détaillés
+### Événements
+- `GET /events/public` - Événements publics
+- `POST /events` - Création événement
+- `GET /events/:id` - Détails événement
+- `PUT /events/:id` - Modification événement
+- `DELETE /events/:id` - Suppression événement
+- `POST /events/:id/join` - Rejoindre événement
+- `POST /events/:id/leave` - Quitter événement
 
-## Scripts disponibles
+### Groupes
+- `GET /groups` - Liste groupes
+- `POST /groups` - Création groupe
+- `GET /groups/:id` - Détails groupe
+- `PUT /groups/:id` - Modification groupe
+- `DELETE /groups/:id` - Suppression groupe
+- `POST /groups/:id/join` - Rejoindre groupe
+- `POST /groups/:id/leave` - Quitter groupe
 
-```bash
-npm run dev     # Développement avec rechargement automatique
-npm start       # Production
-npm run lint    # Vérification du code avec ESLint
-```
+### Discussions
+- `GET /groups/:id/discussion` - Discussion groupe
+- `POST /groups/:id/discussion` - Créer discussion groupe
+- `GET /events/:id/discussion` - Discussion événement
+- `POST /events/:id/discussion` - Créer discussion événement
+- `POST /discussions/:id/messages` - Nouveau message
+- `POST /discussions/:id/messages/:messageId/replies` - Répondre message
+
+### Sondages
+- `GET /events/:id/polls` - Sondages événement
+- `POST /events/:id/polls` - Créer sondage
+- `POST /polls/:id/vote` - Voter sondage
+- `GET /polls/:id/results` - Résultats sondage
+- `PUT /polls/:id` - Modifier sondage
+- `DELETE /polls/:id` - Supprimer sondage
+
+### Albums et Photos
+- `GET /events/:id/albums` - Albums événement
+- `POST /events/:id/albums` - Créer album
+- `GET /albums/:id/photos` - Photos album
+- `POST /albums/:id/photos` - Ajouter photo
+- `PUT /albums/:id` - Modifier album
+- `DELETE /albums/:id` - Supprimer album
+- `DELETE /photos/:id` - Supprimer photo
+
+### Billetterie
+- `GET /events/:id/ticket-types` - Types billets
+- `POST /events/:id/ticket-types` - Créer type billet
+- `POST /ticket-types/:id/purchase` - Acheter billet
+- `GET /tickets/:number` - Détails billet
+- `GET /events/:id/tickets` - Billets événement
+- `POST /tickets/:number/use` - Utiliser billet
+- `PUT /ticket-types/:id` - Modifier type billet
+- `DELETE /ticket-types/:id` - Supprimer type billet
+- `DELETE /tickets/:number` - Annuler billet
+
+## Technologies utilisées
+
+- **Runtime** : Node.js
+- **Framework** : Express.js
+- **Base de données** : MongoDB avec Mongoose
+- **Authentification** : JWT (jsonwebtoken)
+- **Sécurité** : bcrypt pour hashage mots de passe
+- **Validation** : Mongoose schemas
+- **Environnement** : dotenv
+- **Qualité code** : ESLint
+
+## Développement
+
+### Scripts disponibles
+- `npm run dev` : Développement avec lint + hot reload
+- `npm start` : Production
+- `npm run lint` : Vérification code
+- `npm run lint:fix` : Correction automatique
+
+### Standards de code
+- ESLint configuré avec règles strictes
+- Longueur ligne maximum 100 caractères
+- Indentation 2 espaces
+- Point-virgules obligatoires
+
+## Sécurité
+
+- Tokens JWT avec expiration
+- Hashage bcrypt pour mots de passe
+- Validation entrées utilisateur
+- Middleware authentification sur toutes routes protégées
+- Autorisation granulaire par ressource et action
+- Vérification propriétaire pour actions sensibles

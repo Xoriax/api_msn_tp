@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import GroupSchema from '../models/group.mjs';
-import { authenticateToken, checkGroupAdmin } from '../middleware/auth.mjs';
+import { authenticateToken, checkGroupAdmin, checkGroupCreator } from '../middleware/auth.mjs';
 
 export default class Groups {
   constructor(app, connect) {
@@ -95,28 +95,16 @@ export default class Groups {
   }
 
   getGroupById() {
-    this.app.get('/groups/:id', async (req, res) => {
+    this.app.get('/groups/:id', authenticateToken, async (req, res) => {
       try {
         const { id } = req.params;
+        const { userId } = req.user;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
           return res.status(400).json({
             code: 400,
             message: 'ID de groupe invalide'
           });
-        }
-
-        const authHeader = req.headers.authorization;
-        let currentUserId = null;
-
-        if (authHeader) {
-          const token = authHeader.split(' ')[1];
-          try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-this-in-production');
-            currentUserId = decoded.userId;
-          } catch (err) {
-            console.error('Token invalide:', err);
-          }
         }
 
         const group = await this.GroupModel
@@ -134,10 +122,8 @@ export default class Groups {
         }
 
         if (group.type === 'secret') {
-          const isMember = currentUserId && (
-            group.members.some((member) => member._id.toString() === currentUserId)
-            || group.administrators.some((admin) => admin._id.toString() === currentUserId)
-          );
+          const isMember = group.members.some((member) => member._id.toString() === userId)
+            || group.administrators.some((admin) => admin._id.toString() === userId);
 
           if (!isMember) {
             return res.status(404).json({
@@ -148,10 +134,8 @@ export default class Groups {
         }
 
         if (group.type === 'private') {
-          const isMember = currentUserId && (
-            group.members.some((member) => member._id.toString() === currentUserId)
-            || group.administrators.some((admin) => admin._id.toString() === currentUserId)
-          );
+          const isMember = group.members.some((member) => member._id.toString() === userId)
+            || group.administrators.some((admin) => admin._id.toString() === userId);
 
           if (!isMember) {
             const groupObj = group.toObject();
@@ -191,7 +175,7 @@ export default class Groups {
   }
 
   createGroup() {
-    this.app.post('/groups', async (req, res) => {
+    this.app.post('/groups', authenticateToken, async (req, res) => {
       try {
         const {
           name,
@@ -297,7 +281,7 @@ export default class Groups {
   }
 
   deleteGroup() {
-    this.app.delete('/groups/:id', authenticateToken, checkGroupAdmin(this.GroupModel), async (req, res) => {
+    this.app.delete('/groups/:id', authenticateToken, checkGroupCreator(this.GroupModel), async (req, res) => {
       try {
         const { id } = req.params;
 
@@ -332,15 +316,15 @@ export default class Groups {
   }
 
   joinGroup() {
-    this.app.post('/groups/:id/join', async (req, res) => {
+    this.app.post('/groups/:id/join', authenticateToken, async (req, res) => {
       try {
         const { id } = req.params;
-        const { userId } = req.body;
+        const { userId } = req.user;
 
-        if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
           return res.status(400).json({
             code: 400,
-            message: 'ID invalide'
+            message: 'ID de groupe invalide'
           });
         }
 
@@ -360,10 +344,10 @@ export default class Groups {
           });
         }
 
-        if (group.members.includes(userId)) {
+        if (group.members.includes(userId) || group.administrators.includes(userId)) {
           return res.status(400).json({
             code: 400,
-            message: 'L\'utilisateur est déjà membre de ce groupe'
+            message: 'Vous êtes déjà membre de ce groupe'
           });
         }
 
@@ -385,15 +369,15 @@ export default class Groups {
   }
 
   leaveGroup() {
-    this.app.post('/groups/:id/leave', async (req, res) => {
+    this.app.post('/groups/:id/leave', authenticateToken, async (req, res) => {
       try {
         const { id } = req.params;
-        const { userId } = req.body;
+        const { userId } = req.user;
 
-        if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
           return res.status(400).json({
             code: 400,
-            message: 'ID invalide'
+            message: 'ID de groupe invalide'
           });
         }
 
@@ -403,6 +387,17 @@ export default class Groups {
           return res.status(404).json({
             code: 404,
             message: 'Groupe non trouvé'
+          });
+        }
+
+        const isMember = group.members.some(
+          (memberId) => memberId.toString() === userId.toString()
+        );
+
+        if (!isMember) {
+          return res.status(400).json({
+            code: 400,
+            message: 'Vous n\'êtes pas membre de ce groupe'
           });
         }
 

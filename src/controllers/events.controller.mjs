@@ -1,7 +1,9 @@
 import mongoose from 'mongoose';
 import EventSchema from '../models/event.mjs';
 import GroupSchema from '../models/group.mjs';
-import { authenticateToken, checkEventOrganizer } from '../middleware/auth.mjs';
+import {
+  authenticateToken, checkEventOrganizer, checkEventCreator, checkGroupAdmin
+} from '../middleware/auth.mjs';
 
 export default class Events {
   constructor(app, connect) {
@@ -51,7 +53,7 @@ export default class Events {
   }
 
   getEventById() {
-    this.app.get('/events/:id', async (req, res) => {
+    this.app.get('/events/:id', authenticateToken, async (req, res) => {
       try {
         const { id } = req.params;
 
@@ -93,7 +95,7 @@ export default class Events {
   }
 
   createEvent() {
-    this.app.post('/events', async (req, res) => {
+    this.app.post('/events', authenticateToken, async (req, res) => {
       try {
         const {
           name,
@@ -254,7 +256,7 @@ export default class Events {
   }
 
   deleteEvent() {
-    this.app.delete('/events/:id', authenticateToken, checkEventOrganizer(this.EventModel), async (req, res) => {
+    this.app.delete('/events/:id', authenticateToken, checkEventCreator(this.EventModel), async (req, res) => {
       try {
         const { id } = req.params;
 
@@ -289,19 +291,19 @@ export default class Events {
   }
 
   joinEvent() {
-    this.app.post('/events/:id/join', async (req, res) => {
+    this.app.post('/events/:id/join', authenticateToken, async (req, res) => {
       try {
         const { id } = req.params;
-        const { userId } = req.body;
+        const { userId } = req.user;
 
-        if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
           return res.status(400).json({
             code: 400,
-            message: 'ID invalide'
+            message: 'ID d\'événement invalide'
           });
         }
 
-        const event = await this.EventModel.findById(id);
+        const event = await this.EventModel.findById(id).populate('groupId');
 
         if (!event) {
           return res.status(404).json({
@@ -310,10 +312,36 @@ export default class Events {
           });
         }
 
+        if (event.groupId) {
+          const group = await this.GroupModel.findById(event.groupId);
+
+          if (!group) {
+            return res.status(404).json({
+              code: 404,
+              message: 'Groupe associé non trouvé'
+            });
+          }
+
+          const isMember = group.members.some(
+            (memberId) => memberId.toString() === userId.toString()
+          );
+
+          const isAdmin = group.administrators.some(
+            (adminId) => adminId.toString() === userId.toString()
+          );
+
+          if (!isMember && !isAdmin) {
+            return res.status(403).json({
+              code: 403,
+              message: 'Vous devez être membre du groupe pour rejoindre cet événement'
+            });
+          }
+        }
+
         if (event.participants.includes(userId)) {
           return res.status(400).json({
             code: 400,
-            message: 'L\'utilisateur participe déjà à cet événement'
+            message: 'Vous participez déjà à cet événement'
           });
         }
 
@@ -335,15 +363,15 @@ export default class Events {
   }
 
   leaveEvent() {
-    this.app.post('/events/:id/leave', async (req, res) => {
+    this.app.post('/events/:id/leave', authenticateToken, async (req, res) => {
       try {
         const { id } = req.params;
-        const { userId } = req.body;
+        const { userId } = req.user;
 
-        if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
           return res.status(400).json({
             code: 400,
-            message: 'ID invalide'
+            message: 'ID d\'événement invalide'
           });
         }
 
@@ -353,6 +381,17 @@ export default class Events {
           return res.status(404).json({
             code: 404,
             message: 'Événement non trouvé'
+          });
+        }
+
+        const isParticipant = event.participants.some(
+          (participantId) => participantId.toString() === userId.toString()
+        );
+
+        if (!isParticipant) {
+          return res.status(400).json({
+            code: 400,
+            message: 'Vous ne participez pas à cet événement'
           });
         }
 
@@ -377,7 +416,7 @@ export default class Events {
   }
 
   createGroupEvent() {
-    this.app.post('/groups/:groupId/events', async (req, res) => {
+    this.app.post('/groups/:groupId/events', authenticateToken, checkGroupAdmin, async (req, res) => {
       try {
         const { groupId } = req.params;
         const {
@@ -388,8 +427,7 @@ export default class Events {
           location,
           coverPhoto,
           isPrivate = false,
-          organizers,
-          currentUserId // ID de l'utilisateur qui crée l'événement
+          organizers
         } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(groupId)) {
@@ -404,34 +442,6 @@ export default class Events {
           return res.status(400).json({
             code: 400,
             message: 'Tous les champs obligatoires doivent être renseignés'
-          });
-        }
-
-        if (!currentUserId) {
-          return res.status(400).json({
-            code: 400,
-            message: 'L\'ID de l\'utilisateur est requis'
-          });
-        }
-
-        // Vérifier que le groupe existe
-        const group = await this.GroupModel.findById(groupId);
-        if (!group) {
-          return res.status(404).json({
-            code: 404,
-            message: 'Groupe non trouvé'
-          });
-        }
-
-        // Vérifier que l'utilisateur est administrateur du groupe
-        const isGroupAdmin = group.administrators.some(
-          (adminId) => adminId.toString() === currentUserId.toString()
-        );
-
-        if (!isGroupAdmin) {
-          return res.status(403).json({
-            code: 403,
-            message: 'Seuls les administrateurs du groupe peuvent créer des événements'
           });
         }
 
@@ -461,7 +471,6 @@ export default class Events {
         const event = new this.EventModel(eventData);
         const savedEvent = await event.save();
 
-        // Ajouter l'événement à la liste des événements du groupe
         await this.GroupModel.findByIdAndUpdate(
           groupId,
           { $push: { events: savedEvent._id } }

@@ -12,7 +12,7 @@ const Users = class Users {
   }
 
   getall() {
-    this.app.get('/users', async (req, res) => {
+    this.app.get('/users', authenticateToken, async (req, res) => {
       try {
         const { page = 1, limit = 10, search } = req.query;
         const skip = (page - 1) * limit;
@@ -59,7 +59,7 @@ const Users = class Users {
   }
 
   showById() {
-    this.app.get('/users/:id', async (req, res) => {
+    this.app.get('/users/:id', authenticateToken, async (req, res) => {
       try {
         const { id } = req.params;
 
@@ -308,7 +308,7 @@ const Users = class Users {
   }
 
   getUserByEmail() {
-    this.app.get('/users/email/:email', async (req, res) => {
+    this.app.get('/users/email/:email', authenticateToken, async (req, res) => {
       try {
         const { email } = req.params;
 
